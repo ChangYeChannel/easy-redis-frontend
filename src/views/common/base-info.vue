@@ -2,12 +2,12 @@
   <div class="mod-home">
     <el-form :inline="true" :model="dataForm" @keyup.enter.native="getDataList()">
       <el-form-item>
-        <el-input v-model="dataForm.userName" placeholder="用户名" clearable></el-input>
+        <el-input v-model="dataForm.dbName" placeholder="数据库别名" clearable></el-input>
       </el-form-item>
       <el-form-item>
         <el-button @click="getDataList()">查询</el-button>
-        <el-button v-if="isAuth('sys:user:save')" type="primary" @click="addOrUpdateHandle()">新增</el-button>
-        <el-button v-if="isAuth('sys:user:delete')" type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>
+        <el-button type="primary" @click="addOrUpdateHandle()">新增</el-button>
+        <el-button type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>
       </el-form-item>
     </el-form>
     <el-table
@@ -89,13 +89,11 @@
 </template>
 
 <script>
-import {isAuth} from '../../utils'
-
 export default {
   data () {
     return {
       dataForm: {
-        userName: ''
+        dbName: ''
       },
       dataList: [],
       pageIndex: 1,
@@ -110,17 +108,16 @@ export default {
     this.getDataList()
   },
   methods: {
-    isAuth,
     // 获取数据列表
     getDataList () {
       this.dataListLoading = true
       this.$http({
-        url: this.$http.adornUrl('/sys/user/list'),
+        url: this.$http.adornUrl('/business/base/list'),
         method: 'get',
         params: this.$http.adornParams({
           'page': this.pageIndex,
           'limit': this.pageSize,
-          'username': this.dataForm.userName
+          'dbName': this.dataForm.dbName
         })
       }).then(({data}) => {
         if (data && data.code === 0) {
