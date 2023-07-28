@@ -5,6 +5,12 @@
         <el-input v-model="dataForm.dbName" placeholder="数据库别名" clearable></el-input>
       </el-form-item>
       <el-form-item>
+        <el-select v-model="dataForm.ip" placeholder="请选择IP地址">
+          <el-option value="0" label="全部"></el-option>
+          <el-option v-for="option in this.ips" :key="option" :label="option" :value="option"></el-option>
+        </el-select>
+      </el-form-item>
+      <el-form-item>
         <el-button @click="getDataList()">查询</el-button>
         <el-button type="primary" @click="addOrUpdateHandle()">新增</el-button>
         <el-button type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>
@@ -23,39 +29,45 @@
         width="50">
       </el-table-column>
       <el-table-column
-        prop="userId"
+        prop="id"
         header-align="center"
         align="center"
         width="80"
         label="ID">
       </el-table-column>
       <el-table-column
-        prop="username"
+        prop="name"
         header-align="center"
         align="center"
-        label="用户名">
+        label="数据库别名">
       </el-table-column>
       <el-table-column
-        prop="email"
+        prop="ip"
         header-align="center"
         align="center"
-        label="邮箱">
+        label="IP地址">
       </el-table-column>
       <el-table-column
-        prop="mobile"
+        prop="port"
         header-align="center"
         align="center"
-        label="手机号">
+        label="端口号">
       </el-table-column>
       <el-table-column
-        prop="status"
+        prop="isPassword"
         header-align="center"
         align="center"
-        label="状态">
+        label="是否有密码">
         <template slot-scope="scope">
-          <el-tag v-if="scope.row.status === 0" size="small" type="danger">禁用</el-tag>
-          <el-tag v-else size="small">正常</el-tag>
+          <el-tag v-if="scope.row.isPassword === 0" size="small" type="danger">无密码</el-tag>
+          <el-tag v-else size="small">有密码</el-tag>
         </template>
+      </el-table-column>
+      <el-table-column
+        prop="remark"
+        header-align="center"
+        align="center"
+        label="备注">
       </el-table-column>
       <el-table-column
         prop="createTime"
@@ -71,8 +83,9 @@
         width="150"
         label="操作">
         <template slot-scope="scope">
-          <el-button v-if="isAuth('sys:user:update')" type="text" size="small" @click="addOrUpdateHandle(scope.row.userId)">修改</el-button>
-          <el-button v-if="isAuth('sys:user:delete')" type="text" size="small" @click="deleteHandle(scope.row.userId)">删除</el-button>
+          <el-button type="text" size="small" @click="connect(scope.row.ip,scope.row.port)">连接</el-button>
+          <el-button type="text" size="small" @click="addOrUpdateHandle(scope.row.id)">修改</el-button>
+          <el-button type="text" size="small" @click="deleteHandle(scope.row.id)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -85,17 +98,23 @@
       :total="totalPage"
       layout="total, sizes, prev, pager, next, jumper">
     </el-pagination>
+    <add-or-update ref="addOrUpdate" @refreshDataList="getDataList"></add-or-update>
   </div>
 </template>
 
 <script>
+import AddOrUpdate from './base-info-add-or-update.vue'
+import router from '../../router'
+
 export default {
   data () {
     return {
       dataForm: {
-        dbName: ''
+        dbName: '',
+        ip: ''
       },
       dataList: [],
+      ips: [],
       pageIndex: 1,
       pageSize: 10,
       totalPage: 0,
@@ -105,9 +124,27 @@ export default {
     }
   },
   activated () {
+    this.init()
     this.getDataList()
   },
+  components: {
+    AddOrUpdate
+  },
   methods: {
+    // 初始化查询表单框
+    init () {
+      this.$http({
+        url: this.$http.adornUrl('/business/base/init'),
+        method: 'get',
+        params: this.$http.adornParams()
+      }).then(({data}) => {
+        if (data && data.code === 0) {
+          this.ips = data.ips
+        } else {
+          this.ips = []
+        }
+      })
+    },
     // 获取数据列表
     getDataList () {
       this.dataListLoading = true
@@ -117,7 +154,8 @@ export default {
         params: this.$http.adornParams({
           'page': this.pageIndex,
           'limit': this.pageSize,
-          'dbName': this.dataForm.dbName
+          'dbName': this.dataForm.dbName,
+          'ip': this.dataForm.ip
         })
       }).then(({data}) => {
         if (data && data.code === 0) {
@@ -154,18 +192,18 @@ export default {
     },
     // 删除
     deleteHandle (id) {
-      var userIds = id ? [id] : this.dataListSelections.map(item => {
-        return item.userId
+      var ids = id ? [id] : this.dataListSelections.map(item => {
+        return item.id
       })
-      this.$confirm(`确定对[id=${userIds.join(',')}]进行[${id ? '删除' : '批量删除'}]操作?`, '提示', {
+      this.$confirm(`确定对[id=${ids.join(',')}]进行[${id ? '删除' : '批量删除'}]操作?`, '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
         this.$http({
-          url: this.$http.adornUrl('/sys/user/delete'),
+          url: this.$http.adornUrl('/business/base/delete'),
           method: 'post',
-          data: this.$http.adornData(userIds, false)
+          data: this.$http.adornData(ids, false)
         }).then(({data}) => {
           if (data && data.code === 0) {
             this.$message({
@@ -180,7 +218,13 @@ export default {
             this.$message.error(data.msg)
           }
         })
-      }).catch(() => {})
+      }).catch(() => {
+      })
+    },
+    // 连接当前选中数据库
+    connect (ip, port) {
+      console.log(`连接到 IP: ${ip}, 端口: ${port}`)
+      router.push({name: 'databases-data', params: {ip, port}})
     }
   }
 }
