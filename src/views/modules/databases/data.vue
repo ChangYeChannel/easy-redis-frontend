@@ -14,6 +14,13 @@
       <el-form-item>
         <el-button @click="connectServer()">连接</el-button>
       </el-form-item>
+      <div class="new-line">
+        <el-form-item>
+          <el-select v-model="dataForm.datasource" placeholder="请选择数据库" @change="getConnectedData()">
+            <el-option v-for="(option) in options" :key="option.value" :label="option.label" :value="option.value" />
+          </el-select>
+        </el-form-item>
+      </div>
     </el-form>
     <el-table
       :data="dataList"
@@ -40,7 +47,6 @@
         prop="type"
         header-align="center"
         align="center"
-        width="95"
         label="type">
       </el-table-column>
       <el-table-column
@@ -50,7 +56,6 @@
         width="500"
         label="value">
       </el-table-column>
-
       <el-table-column
         fixed="right"
         header-align="center"
@@ -58,7 +63,6 @@
         width="180"
         label="操作">
         <template slot-scope="scope">
-          <el-button type="text" size="small" @click="connect(scope.row.ip,scope.row.port)">连接</el-button>
           <el-button type="text" size="small" @click="addOrUpdateHandle(scope.row.id)">修改</el-button>
           <el-button type="text" size="small" @click="deleteHandle(scope.row.id)">删除</el-button>
         </template>
@@ -77,38 +81,45 @@
 </template>
 
 <script>
-import router from '../../../router'
-
 export default {
-  data () {
+  data() {
     return {
       ips: [],
       ports: [],
       dataForm: {
         ip: '',
-        port: ''
+        port: '',
+        datasource: ''
       },
-      dataList: [],
       pageIndex: 1,
       pageSize: 10,
       totalPage: 0,
+      dataCount: 0,
+      options: [],  // 下拉框选项
+      dataList: [],
       dataListLoading: false,
       dataListSelections: []
     }
   },
-  created () {
+  created() {
     // 先初始化IP地址列表
     this.initIp()
     // 将路由参数绑定到查询条件
     this.dataForm.ip = this.$route.params.ip
-    // 因为上面语句的绑定，手动刷新以下端口列表
-    this.showPort()
-    // 将路由参数绑定到查询条件
-    this.dataForm.port = this.$route.params.port
+    if (this.dataForm.ip !== '' && this.dataForm.ip !== undefined) {
+      // 因为上面语句的绑定，手动刷新以下端口列表
+      this.showPort()
+      // 将路由参数绑定到查询条件
+      this.dataForm.port = this.$route.params.port
+      if (this.dataForm.port !== ''&& this.dataForm.port !== undefined) {
+        // 连接数据库
+        this.connectServer()
+      }
+    }
   },
   methods: {
     // 初始化查询表单框的Ip地址框
-    initIp () {
+    initIp() {
       this.$http({
         url: this.$http.adornUrl('/business/base/init'),
         method: 'get',
@@ -122,7 +133,7 @@ export default {
       })
     },
     // 根据当前选中的Ip地址，变更端口选择框
-    showPort () {
+    showPort() {
       this.$http({
         url: this.$http.adornUrl('/business/base/showPort'),
         method: 'get',
@@ -138,7 +149,7 @@ export default {
       })
     },
     // 连接当前选中的服务
-    connectServer () {
+    connectServer() {
       this.$http({
         url: this.$http.adornUrl('/business/databases/connectServer'),
         method: 'get',
@@ -148,12 +159,14 @@ export default {
         })
       }).then(({data}) => {
         if (data && data.code === 0) {
-          // 连接成功
+          this.showCount(data)
+          // 成功提醒
           this.$message({
             message: '连接成功',
             type: 'success',
             duration: 1500,
             onClose: () => {
+              // 连接成功选中库数据
               this.getConnectedData()
             }
           })
@@ -163,16 +176,36 @@ export default {
         }
       })
     },
+    // 渲染当前连接的Redis服务器中的数据库数量
+    showCount(data) {
+      // 清空当前数据库数量列表
+      this.options = []
+      // 连接建立成功，拿到当前连接的Redis服务器中的数据库数量
+      this.dataCount = data.count
+      // 解析数量，将其渲染到下拉列表
+      for (let i = 0; i < this.dataCount; i++) {
+        this.options.push({ value: i.toString(), label: i + "号库" });
+      }
+      // 渲染完成后默认选中第一个
+      if (this.options.length > 0) {
+        this.dataForm.datasource = this.options[0].value;
+      }
+    },
     // 获取连接后页面数据
-    getConnectedData () {
+    getConnectedData() {
       this.dataListLoading = true
       this.$http({
         url: this.$http.adornUrl('/business/databases/list'),
-        method: 'get'
+        method: 'get',
+        params: this.$http.adornParams({
+          'dataSource': this.dataForm.datasource,
+          'page': this.pageIndex,
+          'limit': this.pageSize
+        })
       }).then(({data}) => {
         if (data && data.code === 0) {
-          this.dataList = data.page.list
-          this.totalPage = data.page.totalCount
+          this.dataList = data.datalist.list
+          this.totalPage = data.datalist.totalCount
         } else {
           this.dataList = []
           this.totalPage = 0
@@ -184,26 +217,26 @@ export default {
     sizeChangeHandle (val) {
       this.pageSize = val
       this.pageIndex = 1
-      this.getDataList()
+      this.getConnectedData()
     },
     // 当前页
     currentChangeHandle (val) {
       this.pageIndex = val
-      this.getDataList()
+      this.getConnectedData()
     },
     // 多选
-    selectionChangeHandle (val) {
+    selectionChangeHandle(val) {
       this.dataListSelections = val
     },
     // 新增 / 修改
-    addOrUpdateHandle (id) {
+    addOrUpdateHandle(id) {
       this.addOrUpdateVisible = true
       this.$nextTick(() => {
         this.$refs.addOrUpdate.init(id)
       })
     },
     // 删除
-    deleteHandle (id) {
+    deleteHandle(id) {
       var ids = id ? [id] : this.dataListSelections.map(item => {
         return item.id
       })
@@ -232,12 +265,13 @@ export default {
         })
       }).catch(() => {
       })
-    },
-    // 连接当前选中数据库
-    connect (ip, port) {
-      console.log(`连接到 IP: ${ip}, 端口: ${port}`)
-      router.push({name: 'databases-data', params: {ip, port}})
     }
   }
 }
 </script>
+<style>
+.new-line {
+  display: block;
+  margin-top: 10px;
+}
+</style>
