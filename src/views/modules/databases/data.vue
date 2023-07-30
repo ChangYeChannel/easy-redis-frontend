@@ -7,18 +7,23 @@
         </el-select>
       </el-form-item>
       <el-form-item>
-        <el-select v-model="dataForm.port" placeholder="请选择端口">
+        <el-select v-model="dataForm.port" placeholder="请选择端口" @change="dataForm.datasource = ''">
           <el-option v-for="option in this.ports" :key="option" :label="option" :value="option"></el-option>
         </el-select>
       </el-form-item>
       <el-form-item>
         <el-button @click="connectServer()">连接</el-button>
+        <el-button type="primary" :disabled="!dataForm.datasource" @click="addOrUpdateHandle(dataForm.datasource)">新增</el-button>
+        <el-button type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>
       </el-form-item>
       <div class="new-line">
         <el-form-item>
           <el-select v-model="dataForm.datasource" placeholder="请选择数据库" @change="getConnectedData()">
             <el-option v-for="(option) in options" :key="option.value" :label="option.label" :value="option.value" />
           </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button :disabled="!dataForm.datasource" @click="getConnectedData()">刷新</el-button>
         </el-form-item>
       </div>
     </el-form>
@@ -43,12 +48,14 @@
         width="400"
         label="key">
       </el-table-column>
+
       <el-table-column
         prop="type"
         header-align="center"
         align="center"
         label="type">
       </el-table-column>
+
       <el-table-column
         prop="value"
         header-align="center"
@@ -56,6 +63,21 @@
         width="500"
         label="value">
       </el-table-column>
+
+      <el-table-column
+        prop="ttl"
+        header-align="center"
+        align="center"
+        width="300"
+        label="剩余过期时间（秒）">
+        <template slot-scope="{ row }">
+          <span>
+            <!-- 根据 row.ttl 的值来动态展示对应的文本 -->
+            {{ row.ttl === -1 ? '永不过期' : (row.ttl === -99 ? '当前键已经过期' : row.ttl) }}
+          </span>
+        </template>
+      </el-table-column>
+
       <el-table-column
         fixed="right"
         header-align="center"
@@ -63,8 +85,8 @@
         width="180"
         label="操作">
         <template slot-scope="scope">
-          <el-button type="text" size="small" @click="addOrUpdateHandle(scope.row.id)">修改</el-button>
-          <el-button type="text" size="small" @click="deleteHandle(scope.row.id)">删除</el-button>
+          <el-button type="text" size="small" @click="addOrUpdateHandle(dataForm.datasource,scope.row.key)">修改</el-button>
+          <el-button type="text" size="small" @click="deleteHandle(scope.row.key)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -77,10 +99,12 @@
       :total="totalPage"
       layout="total, sizes, prev, pager, next, jumper">
     </el-pagination>
+    <add-or-update ref="addOrUpdate" @refreshDataList="getConnectedData()"></add-or-update>
   </div>
 </template>
 
 <script>
+import AddOrUpdate from './data-add-or-update.vue'
 export default {
   data() {
     return {
@@ -98,7 +122,8 @@ export default {
       options: [],  // 下拉框选项
       dataList: [],
       dataListLoading: false,
-      dataListSelections: []
+      dataListSelections: [],
+      addOrUpdateVisible: false
     }
   },
   created() {
@@ -116,6 +141,9 @@ export default {
         this.connectServer()
       }
     }
+  },
+  components: {
+    AddOrUpdate
   },
   methods: {
     // 初始化查询表单框的Ip地址框
@@ -229,41 +257,39 @@ export default {
       this.dataListSelections = val
     },
     // 新增 / 修改
-    addOrUpdateHandle(id) {
+    addOrUpdateHandle(datasource,key) {
       this.addOrUpdateVisible = true
       this.$nextTick(() => {
-        this.$refs.addOrUpdate.init(id)
+        this.$refs.addOrUpdate.init(datasource,key)
       })
     },
     // 删除
     deleteHandle(id) {
       var ids = id ? [id] : this.dataListSelections.map(item => {
-        return item.id
+        return item.key
       })
       this.$confirm(`确定对[id=${ids.join(',')}]进行[${id ? '删除' : '批量删除'}]操作?`, '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
+        // 将当前执行删除操作的库追加到请求参数中
+        ids.unshift(this.dataForm.datasource)
         this.$http({
-          url: this.$http.adornUrl('/business/base/delete'),
+          url: this.$http.adornUrl('/business/databases/delete'),
           method: 'post',
           data: this.$http.adornData(ids, false)
         }).then(({data}) => {
           if (data && data.code === 0) {
             this.$message({
-              message: '操作成功',
-              type: 'success',
+              message: data.message,
               duration: 1500,
               onClose: () => {
-                this.getDataList()
+                this.getConnectedData()
               }
             })
-          } else {
-            this.$message.error(data.msg)
           }
         })
-      }).catch(() => {
       })
     }
   }

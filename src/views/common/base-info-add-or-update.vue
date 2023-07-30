@@ -9,7 +9,7 @@
         <el-input v-model="dataForm.name" placeholder="数据库别名"></el-input>
       </el-form-item>
       <el-form-item label="IP地址" prop="ip">
-        <el-input v-model="dataForm.ip" placeholder="IP地址" @change="handleIpChange"></el-input>
+        <el-input v-model="dataForm.ip" placeholder="IP地址" @blur="handleIpChange"></el-input>
       </el-form-item>
       <el-form-item label="端口号" prop="port">
         <el-input v-model="dataForm.port" placeholder="端口号" :disabled="!this.isIpValid" @blur="checkPort()"></el-input>
