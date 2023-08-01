@@ -7,23 +7,31 @@
         </el-select>
       </el-form-item>
       <el-form-item>
-        <el-select v-model="dataForm.port" placeholder="请选择端口" @change="dataForm.datasource = ''">
+        <el-select v-model="dataForm.port" placeholder="请选择端口" @change="cleanData()">
           <el-option v-for="option in this.ports" :key="option" :label="option" :value="option"></el-option>
         </el-select>
       </el-form-item>
       <el-form-item>
         <el-button @click="connectServer()">连接</el-button>
-        <el-button type="primary" :disabled="!dataForm.datasource" @click="addOrUpdateHandle(dataForm.datasource)">新增</el-button>
+        <el-button type="primary" :disabled="!dataForm.datasource" @click="addOrUpdateHandle(dataForm.datasource)">
+          新增数据
+        </el-button>
         <el-button type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>
       </el-form-item>
       <div class="new-line">
         <el-form-item>
           <el-select v-model="dataForm.datasource" placeholder="请选择数据库" @change="getConnectedData()">
-            <el-option v-for="(option) in options" :key="option.value" :label="option.label" :value="option.value" />
+            <el-option v-for="(option) in options" :key="option.value" :label="option.label" :value="option.value"/>
           </el-select>
         </el-form-item>
         <el-form-item>
           <el-button :disabled="!dataForm.datasource" @click="getConnectedData()">刷新</el-button>
+        </el-form-item>
+        <el-form-item>
+          <el-input v-model="dataForm.likeKey" placeholder="模糊查询" clearable></el-input>
+        </el-form-item>
+        <el-form-item>
+          <el-button :disabled="!dataForm.likeKey" @click="getConnectedDataByLike()">查询</el-button>
         </el-form-item>
       </div>
     </el-form>
@@ -33,14 +41,12 @@
       v-loading="dataListLoading"
       @selection-change="selectionChangeHandle"
       style="width: 100%;">
-
       <el-table-column
         type="selection"
         header-align="center"
         align="center"
         width="50">
       </el-table-column>
-
       <el-table-column
         prop="key"
         header-align="center"
@@ -48,14 +54,12 @@
         width="400"
         label="key">
       </el-table-column>
-
       <el-table-column
         prop="type"
         header-align="center"
         align="center"
         label="type">
       </el-table-column>
-
       <el-table-column
         prop="value"
         header-align="center"
@@ -63,7 +67,6 @@
         width="500"
         label="value">
       </el-table-column>
-
       <el-table-column
         prop="ttl"
         header-align="center"
@@ -77,7 +80,6 @@
           </span>
         </template>
       </el-table-column>
-
       <el-table-column
         fixed="right"
         header-align="center"
@@ -85,7 +87,8 @@
         width="180"
         label="操作">
         <template slot-scope="scope">
-          <el-button type="text" size="small" @click="addOrUpdateHandle(dataForm.datasource,scope.row.key)">修改</el-button>
+          <el-button type="text" size="small" @click="addOrUpdateHandle(dataForm.datasource,scope.row.key)">修改
+          </el-button>
           <el-button type="text" size="small" @click="deleteHandle(scope.row.key)">删除</el-button>
         </template>
       </el-table-column>
@@ -105,28 +108,31 @@
 
 <script>
 import AddOrUpdate from './data-add-or-update.vue'
+
 export default {
-  data() {
+  data () {
     return {
       ips: [],
       ports: [],
       dataForm: {
         ip: '',
         port: '',
-        datasource: ''
+        datasource: '',
+        likeKey: ''
       },
       pageIndex: 1,
       pageSize: 10,
       totalPage: 0,
       dataCount: 0,
-      options: [],  // 下拉框选项
+      // 数据库选择下拉框
+      options: [],
       dataList: [],
       dataListLoading: false,
       dataListSelections: [],
       addOrUpdateVisible: false
     }
   },
-  created() {
+  created () {
     // 先初始化IP地址列表
     this.initIp()
     // 将路由参数绑定到查询条件
@@ -136,7 +142,7 @@ export default {
       this.showPort()
       // 将路由参数绑定到查询条件
       this.dataForm.port = this.$route.params.port
-      if (this.dataForm.port !== ''&& this.dataForm.port !== undefined) {
+      if (this.dataForm.port !== '' && this.dataForm.port !== undefined) {
         // 连接数据库
         this.connectServer()
       }
@@ -147,7 +153,7 @@ export default {
   },
   methods: {
     // 初始化查询表单框的Ip地址框
-    initIp() {
+    initIp () {
       this.$http({
         url: this.$http.adornUrl('/business/base/init'),
         method: 'get',
@@ -161,7 +167,7 @@ export default {
       })
     },
     // 根据当前选中的Ip地址，变更端口选择框
-    showPort() {
+    showPort () {
       this.$http({
         url: this.$http.adornUrl('/business/base/showPort'),
         method: 'get',
@@ -177,7 +183,7 @@ export default {
       })
     },
     // 连接当前选中的服务
-    connectServer() {
+    connectServer () {
       this.$http({
         url: this.$http.adornUrl('/business/databases/connectServer'),
         method: 'get',
@@ -205,22 +211,22 @@ export default {
       })
     },
     // 渲染当前连接的Redis服务器中的数据库数量
-    showCount(data) {
+    showCount (data) {
       // 清空当前数据库数量列表
       this.options = []
       // 连接建立成功，拿到当前连接的Redis服务器中的数据库数量
       this.dataCount = data.count
       // 解析数量，将其渲染到下拉列表
       for (let i = 0; i < this.dataCount; i++) {
-        this.options.push({ value: i.toString(), label: i + "号库" });
+        this.options.push({value: i.toString(), label: i + '号库'})
       }
       // 渲染完成后默认选中第一个
       if (this.options.length > 0) {
-        this.dataForm.datasource = this.options[0].value;
+        this.dataForm.datasource = this.options[0].value
       }
     },
     // 获取连接后页面数据
-    getConnectedData() {
+    getConnectedData () {
       this.dataListLoading = true
       this.$http({
         url: this.$http.adornUrl('/business/databases/list'),
@@ -228,7 +234,8 @@ export default {
         params: this.$http.adornParams({
           'dataSource': this.dataForm.datasource,
           'page': this.pageIndex,
-          'limit': this.pageSize
+          'limit': this.pageSize,
+          'likeKey': this.dataForm.likeKey
         })
       }).then(({data}) => {
         if (data && data.code === 0) {
@@ -240,6 +247,11 @@ export default {
         }
         this.dataListLoading = false
       })
+    },
+    // 模糊查询
+    getConnectedDataByLike () {
+      this.pageIndex = 1
+      this.getConnectedData()
     },
     // 每页数
     sizeChangeHandle (val) {
@@ -253,18 +265,27 @@ export default {
       this.getConnectedData()
     },
     // 多选
-    selectionChangeHandle(val) {
+    selectionChangeHandle (val) {
       this.dataListSelections = val
     },
     // 新增 / 修改
-    addOrUpdateHandle(datasource,key) {
+    addOrUpdateHandle (datasource, key) {
+      this.checkConnected()
       this.addOrUpdateVisible = true
       this.$nextTick(() => {
-        this.$refs.addOrUpdate.init(datasource,key)
+        this.$refs.addOrUpdate.init(datasource, key)
       })
     },
+    // 当端口号发生变动的时候，清理数据
+    cleanData () {
+      this.dataForm.datasource = ''
+      this.dataForm.likeKey = ''
+      this.dataList = []
+      this.options = []
+    },
     // 删除
-    deleteHandle(id) {
+    deleteHandle (id) {
+      this.checkConnected()
       var ids = id ? [id] : this.dataListSelections.map(item => {
         return item.key
       })
@@ -290,6 +311,20 @@ export default {
             })
           }
         })
+      })
+    },
+    // 检查当前连接情况
+    checkConnected () {
+      this.$http({
+        url: this.$http.adornUrl('/business/databases/checkConnected'),
+        method: 'get'
+      }).then(({data}) => {
+        if (data.code === 500) {
+          // 连接失败
+          this.$message.error('与redis服务连接已断开，正在重新建立连接')
+          this.addOrUpdateVisible = false
+          this.connectServer()
+        }
       })
     }
   }

@@ -3,14 +3,12 @@
     :title="!dataForm.key ? '新增' : '修改'"
     :close-on-click-modal="false"
     :visible.sync="visible">
-    <el-form :model="dataForm" :rules="dataRules" ref="dataForm" @keyup.enter.native="dataFormSubmit()"
+    <el-form :model="dataForm" :rules="dataRule" ref="dataForm" @keyup.enter.native="dataFormSubmit()"
              label-width="80px">
-
-      <el-form-item label="Key" prop="Key">
-        <el-input v-model="dataForm.key" placeholder="Key" :disabled="keyDisable" @change="checkKey()"></el-input>
+      <el-form-item label="key" prop="key">
+        <el-input v-model="dataForm.key" placeholder="key" :disabled="keyDisable" @change="checkKey()"></el-input>
       </el-form-item>
-
-      <el-form-item label="Type" size="mini" prop="Type">
+      <el-form-item label="type" size="mini" prop="type">
         <el-radio-group v-model="dataForm.type">
           <el-radio :label="'0'">string</el-radio>
           <el-radio :label="'1'">list</el-radio>
@@ -19,23 +17,18 @@
           <el-radio :label="'4'">hash</el-radio>
         </el-radio-group>
       </el-form-item>
-
-      <el-form-item label="Value" prop="Value">
+      <el-form-item label="value" prop="value">
         <el-input v-model="dataForm.value" :placeholder="placeholder"></el-input>
       </el-form-item>
-
-
       <el-form-item label="设置TTL" size="mini" prop="isTTL">
         <el-radio-group v-model="dataForm.isTTL">
           <el-radio :label="'0'">不设置</el-radio>
           <el-radio :label="'1'">设置</el-radio>
         </el-radio-group>
       </el-form-item>
-
-      <el-form-item label="TTL" prop="TTL" v-if="dataForm.isTTL === '1'">
-        <el-input v-model="dataForm.ttl" placeholder="过期时间"></el-input>
+      <el-form-item label="ttl" prop="ttl" v-if="dataForm.isTTL === '1'">
+        <el-input v-model="dataForm.ttl" placeholder="过期时间,请输入大于0的整数（单位：秒）"></el-input>
       </el-form-item>
-
     </el-form>
     <span slot="footer" class="dialog-footer">
       <el-button @click="visible = false">取消</el-button>
@@ -43,10 +36,9 @@
     </span>
   </el-dialog>
 </template>
-
 <script>
 export default {
-  data() {
+  data () {
     return {
       // 控制表单是否显示
       visible: false,
@@ -64,27 +56,22 @@ export default {
       // 输入时判断键是否已经存在
       keyDisable: false,
       // 表单项校验
-      dataRules: {
-        Key: [
-          {required: true, message: '键不能为空', trigger: 'blur'}
+      dataRule: {
+        key: [
+          {required: true, message: '键不能为空', trigger: 'change'}
         ],
-        Value: [
+        value: [
           {required: true, message: '值不能为空', trigger: 'blur'}
         ],
-        TTL: [
+        ttl: [
           {required: true, message: '过期时间不能为空', trigger: 'blur'},
           {
             validator: (rule, value, callback) => {
-              if (!value) {
-                callback(new Error('请填写过期时间'));
+              const reg = /^[1-9]\d*$/ // 正则表达式，匹配大于0的整数
+              if (!reg.test(value)) {
+                callback(new Error('请输入大于0的整数'))
               } else {
-                const trimmedValue = value.toString().trim(); // 转换为字符串后再去除空格
-                const intValue = parseInt(trimmedValue, 10);
-                if (isNaN(intValue) || intValue <= 0) {
-                  callback(new Error('请输入大于0的整数'));
-                } else {
-                  callback();
-                }
+                callback()
               }
             },
             trigger: 'blur'
@@ -94,26 +81,26 @@ export default {
     }
   },
   computed: {
-    placeholder() {
+    placeholder () {
       switch (this.dataForm.type) {
         case '0':
-          return '请输入字符串类型数据，例如：hello';
+          return '请输入字符串类型数据，例如：hello'
         case '1':
-          return '请输入集合类型数据，例如：[hello,world]';
+          return '请输入集合类型数据，例如：[hello,world]'
         case '2':
-          return '请输入集合类型数据并保证每个元素不同，例如：[hello,world]';
+          return '请输入集合类型数据，例如：[hello,world]'
         case '3':
-          return '请输入集合类型数据，保证每个元素不同并附加分数，例如：[hello:1,world:2]';
+          return '请输入集合类型数据，附加分数，例如：[[hello:1],[world:2]]'
         case '4':
-          return '请输入Hash类型数据，例如：{hello=world,hello-1=world-1}';
+          return '请输入Hash类型数据，例如：{hello=world,hello-1=world-1}'
         default:
-          return '';
+          return ''
       }
     }
   },
   methods: {
     // 初始化
-    init(datasource, key) {
+    init (datasource, key) {
       this.dataForm = {
         key: '',
         value: '',
@@ -147,10 +134,12 @@ export default {
             }
           }
         })
+      } else {
+        this.keyDisable = false
       }
     },
     // 检查输入的端口号是否在数据库中已经存在
-    checkKey() {
+    checkKey () {
       this.$http({
         url: this.$http.adornUrl(`/business/databases/checkKey`),
         method: 'get',
@@ -160,12 +149,12 @@ export default {
         })
       }).then(({data}) => {
         if (data && data.code === 0) {
-          this.isExits = data.isExits
+          this.isExits = data.checked
         }
       })
     },
     // 提交前检查
-    beforSubmit() {
+    beforSubmit () {
       if (this.isExits) {
         this.$confirm(`当前Key已在服务器中存在，新值将会覆写旧值，是否继续?`, '提示', {
           confirmButtonText: '继续',
@@ -177,53 +166,44 @@ export default {
         }).catch(() => {
           // 终止表单提交
           return false
-        });
+        })
       } else {
         // 如果校验通过，提交表单数据到后端
         this.dataFormSubmit()
       }
     },
     // 表单提交
-    dataFormSubmit() {
-      this.$http({
-        url: this.$http.adornUrl(`/business/databases/save`),
-        method: 'post',
-        data: this.$http.adornData({
-          'datasource': this.datasource,
-          'key': this.dataForm.key,
-          'value': this.dataForm.name,
-          'type': this.dataForm.ip,
-          'isTTL': this.dataForm.ip,
-          'ttl': this.dataForm.port
-        })
-      }).then(({data}) => {
-        if (data && data.code === 0) {
-          this.$message({
-            message: '操作成功',
-            type: 'success',
-            duration: 1500,
-            onClose: () => {
-              this.visible = false
-              this.$emit('refreshDataList')
+    dataFormSubmit () {
+      this.$refs['dataForm'].validate((valid) => {
+        if (valid) {
+          this.$http({
+            url: this.$http.adornUrl(`/business/databases/save`),
+            method: 'post',
+            data: this.$http.adornData({
+              'datasource': this.datasource,
+              'key': this.dataForm.key,
+              'value': this.dataForm.value,
+              'type': this.dataForm.type,
+              'isTTL': this.dataForm.isTTL,
+              'ttl': this.dataForm.ttl
+            })
+          }).then(({data}) => {
+            if (data && data.code === 0) {
+              this.$message({
+                message: '操作成功',
+                type: 'success',
+                duration: 1500,
+                onClose: () => {
+                  this.visible = false
+                  this.$emit('refreshDataList')
+                }
+              })
+            } else {
+              this.$message.error(data.msg)
             }
           })
-        } else {
-          this.$message.error(data.msg)
         }
       })
-    },
-    handleTypeChange(value) {
-      this.dataForm.value = [];
-    },
-    addValue() {
-      if (['1', '2', '3'].includes(this.dataForm.type)) {
-        this.dataForm.value.push({val: ''});
-      } else if (this.dataForm.type === '4') {
-        this.dataForm.value.push({key: '', val: ''});
-      }
-    },
-    removeValue(index) {
-      this.dataForm.value.splice(index, 1);
     }
   }
 }
